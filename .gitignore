@@ -3,3 +3,5 @@ dist/
 *.tgz
 *.tsbuildinfo
 .DS_Store
+.venv/
+__pycache__/

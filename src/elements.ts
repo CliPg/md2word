@@ -444,6 +444,7 @@ export async function createHeadingParagraph(token: any, formatSettings?: Format
     bold: true,
     font: { name: headingStyle.fontFamily },
     size: headingStyle.fontSize * 2,
+    color: headingStyle.color,
   };
 
   let children: ParagraphChild[];
@@ -471,7 +472,12 @@ export async function createHeadingParagraph(token: any, formatSettings?: Format
 export async function createParagraphElement(token: any, formatSettings?: FormatSettings): Promise<Paragraph> {
   const paraStyle = formatSettings?.paragraph || defaultParagraphStyle;
   const rawText = token.raw || token.text || '';
-  const runs = await parseTextWithFormat(rawText, formatSettings);
+  const baseConfig: Partial<TextRunConfig> = {
+    font: { name: paraStyle.fontFamily },
+    size: paraStyle.fontSize * 2,
+    color: paraStyle.color,
+  };
+  const runs = await parseTextWithFormat(rawText, formatSettings, baseConfig);
 
   const firstLineIndent = (paraStyle.firstLineIndent || 0) * paraStyle.fontSize * 20;
 

@@ -10,6 +10,7 @@ export interface ParagraphStyle {
   lineHeight: number;
   paragraphSpacing: number;
   firstLineIndent: number;
+  color?: string;
 }
 
 // 标题样式
@@ -20,6 +21,7 @@ export interface HeadingStyle {
   alignment: 'left' | 'center' | 'right' | 'justify';
   spacingBefore: number;
   spacingAfter: number;
+  color?: string;
 }
 
 // 排版设置
