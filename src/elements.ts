@@ -20,6 +20,114 @@ import {
   defaultHeadingStyles,
 } from './types';
 
+// CSS 命名颜色到十六进制映射
+const CSS_COLORS: Record<string, string> = {
+  black: '000000', white: 'FFFFFF', red: 'FF0000', green: '008000', blue: '0000FF',
+  yellow: 'FFFF00', cyan: '00FFFF', magenta: 'FF00FF', orange: 'FFA500', purple: '800080',
+  pink: 'FFC0CB', brown: 'A52A2A', gray: '808080', grey: '808080', silver: 'C0C0C0',
+  gold: 'FFD700', navy: '000080', teal: '008080', maroon: '800000', olive: '808000',
+  lime: '00FF00', aqua: '00FFFF', fuchsia: 'FF00FF', coral: 'FF7F50', salmon: 'FA8072',
+  tomato: 'FF6347', violet: 'EE82EE', indigo: '4B0082', crimson: 'DC143C', chocolate: 'D2691E',
+  darkblue: '00008B', darkgreen: '006400', darkred: '8B0000', darkgray: 'A9A9A9',
+  lightblue: 'ADD8E6', lightgreen: '90EE90', lightgray: 'D3D3D3',
+};
+
+/**
+ * 将颜色值转换为 docx 所需的十六进制格式（无 # 前缀，6 位）
+ */
+function resolveColor(color: string): string | undefined {
+  if (!color) return undefined;
+  const trimmed = color.trim().toLowerCase();
+
+  // 命名颜色
+  if (CSS_COLORS[trimmed]) return CSS_COLORS[trimmed];
+
+  // #RGB 或 #RRGGBB
+  const hexMatch = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    return hex.length === 3
+      ? hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2]
+      : hex;
+  }
+
+  // rgb(r, g, b)
+  const rgbMatch = trimmed.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/);
+  if (rgbMatch) {
+    const r = Math.min(255, parseInt(rgbMatch[1])).toString(16).padStart(2, '0');
+    const g = Math.min(255, parseInt(rgbMatch[2])).toString(16).padStart(2, '0');
+    const b = Math.min(255, parseInt(rgbMatch[3])).toString(16).padStart(2, '0');
+    return r + g + b;
+  }
+
+  return undefined;
+}
+
+/**
+ * 解析文本中的 <font color="..."> 标签，返回 TextRun 数组
+ */
+export function parseHtmlFontTags(
+  text: string,
+  baseConfig: Partial<TextRunConfig> = {},
+  formatSettings?: FormatSettings
+): ParagraphChild[] {
+  const paraStyle = formatSettings?.paragraph || defaultParagraphStyle;
+  const runs: ParagraphChild[] = [];
+  // 匹配 <font color="...">text</font> 或 <span style="color:...">text</span>
+  const regex = /<(?:font|span)\s+(?:color="([^"]*)"|style="[^"]*color:\s*([^;"']+)[^"]*")\s*>([\s\S]*?)<\/(?:font|span)>/gi;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    // 匹配前的普通文本
+    if (match.index > lastIndex) {
+      const plain = text.slice(lastIndex, match.index);
+      if (plain) {
+        runs.push(new TextRun({
+          text: plain,
+          font: baseConfig.font || { name: paraStyle.fontFamily },
+          size: baseConfig.size || paraStyle.fontSize * 2,
+          bold: baseConfig.bold,
+          italics: baseConfig.italics,
+          color: baseConfig.color,
+        }));
+      }
+    }
+
+    const colorValue = match[1] || match[2]; // color 属性值或 style 中的 color 值
+    const innerText = match[3];
+    const resolvedColor = resolveColor(colorValue);
+
+    runs.push(new TextRun({
+      text: innerText,
+      font: baseConfig.font || { name: paraStyle.fontFamily },
+      size: baseConfig.size || paraStyle.fontSize * 2,
+      bold: baseConfig.bold,
+      italics: baseConfig.italics,
+      color: resolvedColor || baseConfig.color,
+    }));
+
+    lastIndex = regex.lastIndex;
+  }
+
+  // 剩余文本
+  if (lastIndex < text.length) {
+    const remaining = text.slice(lastIndex);
+    if (remaining) {
+      runs.push(new TextRun({
+        text: remaining,
+        font: baseConfig.font || { name: paraStyle.fontFamily },
+        size: baseConfig.size || paraStyle.fontSize * 2,
+        bold: baseConfig.bold,
+        italics: baseConfig.italics,
+        color: baseConfig.color,
+      }));
+    }
+  }
+
+  return runs;
+}
+
 // 获取标题级别
 function getHeadingLevelValue(depth: number): (typeof HeadingLevel)[keyof typeof HeadingLevel] {
   switch (depth) {
@@ -53,6 +161,12 @@ export async function parseTextWithFormat(
 ): Promise<ParagraphChild[]> {
   const runs: ParagraphChild[] = [];
   const paraStyle = formatSettings?.paragraph || defaultParagraphStyle;
+
+  // 如果文本包含 <font> 或 <span style="color:"> 标签，优先解析颜色
+  if (/<(?:font|span)\s/i.test(text)) {
+    const fontRuns = parseHtmlFontTags(text, baseConfig, formatSettings);
+    if (fontRuns.length > 0) return fontRuns;
+  }
 
   const regex = /(\$\$(.+?)\$\$)|(\$(?!\$)(.+?)(?<!\$)\$)|(`+)([^`]+)\5|\*\*(.+?)\*\*/gs;
   let lastIndex = 0;
@@ -161,6 +275,13 @@ export async function parseInlineTokens(
   const runs: ParagraphChild[] = [];
   const paraStyle = formatSettings?.paragraph || defaultParagraphStyle;
 
+  // 用于追踪 <font color="..."> 的颜色状态（marked 会将标签拆分为独立 token）
+  const colorStack: string[] = [];
+
+  const getCurrentColor = (): string | undefined => {
+    return colorStack.length > 0 ? colorStack[colorStack.length - 1] : baseConfig.color;
+  };
+
   for (const token of tokens) {
     const tokenType = token.type as string;
 
@@ -168,7 +289,8 @@ export async function parseInlineTokens(
       case 'text': {
         const textContent = token.text || '';
         if (textContent) {
-          runs.push(...await parseTextWithFormat(textContent, formatSettings, baseConfig));
+          const currentColor = getCurrentColor();
+          runs.push(...await parseTextWithFormat(textContent, formatSettings, { ...baseConfig, color: currentColor }));
         }
         break;
       }
@@ -188,7 +310,7 @@ export async function parseInlineTokens(
           size: baseConfig.size || paraStyle.fontSize * 2,
           italics: baseConfig.italics,
           strike: baseConfig.strike,
-          color: baseConfig.color,
+          color: getCurrentColor(),
         }));
         break;
       }
@@ -208,7 +330,7 @@ export async function parseInlineTokens(
           size: baseConfig.size || paraStyle.fontSize * 2,
           bold: baseConfig.bold,
           strike: baseConfig.strike,
-          color: baseConfig.color,
+          color: getCurrentColor(),
         }));
         break;
       }
@@ -228,7 +350,7 @@ export async function parseInlineTokens(
           size: baseConfig.size || paraStyle.fontSize * 2,
           bold: baseConfig.bold,
           italics: baseConfig.italics,
-          color: baseConfig.color,
+          color: getCurrentColor(),
         }));
         break;
       }
@@ -261,10 +383,47 @@ export async function parseInlineTokens(
         runs.push(new TextRun({ break: 1 }));
         break;
 
+      case 'html': {
+        const htmlContent = token.text || token.raw || '';
+        // 检测开标签 <font color="..."> 或 <span style="color:...">
+        const openMatch = htmlContent.match(/^<(?:font|span)\s+(?:color="([^"]*)"|style="[^"]*color:\s*([^;"']+)[^"]*")\s*>$/i);
+        // 检测闭标签 </font> 或 </span>
+        const closeMatch = htmlContent.match(/^<\/(?:font|span)>$/i);
+
+        if (openMatch) {
+          const colorValue = openMatch[1] || openMatch[2];
+          const resolved = resolveColor(colorValue);
+          if (resolved) {
+            colorStack.push(resolved);
+          }
+        } else if (closeMatch && colorStack.length > 0) {
+          colorStack.pop();
+        } else {
+          // 其他 HTML 标签，尝试解析完整 font/span 标签
+          const htmlRuns = parseHtmlFontTags(htmlContent, baseConfig, formatSettings);
+          if (htmlRuns.length > 0) {
+            runs.push(...htmlRuns);
+          } else {
+            const plainText = htmlContent.replace(/<[^>]*>/g, '');
+            if (plainText) {
+              runs.push(new TextRun({
+                text: plainText,
+                font: baseConfig.font || { name: paraStyle.fontFamily },
+                size: baseConfig.size || paraStyle.fontSize * 2,
+                bold: baseConfig.bold,
+                italics: baseConfig.italics,
+                color: getCurrentColor(),
+              }));
+            }
+          }
+        }
+        break;
+      }
+
       default: {
         const textContent = token.text || token.raw || '';
         if (textContent) {
-          runs.push(...await parseTextWithFormat(textContent, formatSettings, baseConfig));
+          runs.push(...await parseTextWithFormat(textContent, formatSettings, { ...baseConfig, color: getCurrentColor() }));
         }
       }
     }
@@ -276,23 +435,27 @@ export async function parseInlineTokens(
 /**
  * 创建标题段落
  */
-export function createHeadingParagraph(token: any, formatSettings?: FormatSettings): Paragraph {
+export async function createHeadingParagraph(token: any, formatSettings?: FormatSettings): Promise<Paragraph> {
   const depth = token.depth || 1;
   const headingKey = `heading${Math.min(depth, 4)}` as keyof FormatSettings;
   const headingStyle = (formatSettings?.[headingKey] as HeadingStyle) || defaultHeadingStyles[headingKey];
 
-  let headingText = token.text || '';
-  if (!headingText && token.tokens) {
-    headingText = token.tokens.map((t: any) => t.text || t.raw || '').join('');
+  const baseConfig: Partial<TextRunConfig> = {
+    bold: true,
+    font: { name: headingStyle.fontFamily },
+    size: headingStyle.fontSize * 2,
+  };
+
+  let children: ParagraphChild[];
+  if (token.tokens) {
+    children = await parseInlineTokens(token.tokens, baseConfig, formatSettings);
+  } else {
+    const headingText = token.text || '';
+    children = [new TextRun({ text: headingText, ...baseConfig })];
   }
 
   return new Paragraph({
-    children: [new TextRun({
-      text: headingText,
-      bold: true,
-      font: { name: headingStyle.fontFamily },
-      size: headingStyle.fontSize * 2,
-    })],
+    children,
     alignment: getAlignment(headingStyle.alignment),
     spacing: {
       before: headingStyle.spacingBefore * 20,

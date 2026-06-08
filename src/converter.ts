@@ -6,6 +6,7 @@ import { ConvertOptions, FormatSettings } from './types';
 import {
   parseInlineTokens,
   parseTextWithFormat,
+  parseHtmlFontTags,
   createHeadingParagraph,
   createParagraphElement,
   createBlockquoteParagraphs,
@@ -119,7 +120,7 @@ export async function markdownToParagraphs(
     try {
       switch (token.type) {
         case 'heading':
-          elements.push(createHeadingParagraph(token, formatSettings));
+          elements.push(await createHeadingParagraph(token, formatSettings));
           break;
 
         case 'paragraph': {
@@ -237,13 +238,22 @@ export async function markdownToParagraphs(
           const htmlText = (token as any).text;
           const paraStyle = formatSettings?.paragraph;
           if (htmlText?.trim()) {
-            elements.push(new Paragraph({
-              children: [new TextRun({
-                text: htmlText.replace(/<[^>]*>/g, ''),
-                font: { name: paraStyle?.fontFamily || '宋体' },
-                size: (paraStyle?.fontSize || 12) * 2,
-              })],
-            }));
+            const baseConfig = {
+              font: { name: paraStyle?.fontFamily || '宋体' },
+              size: (paraStyle?.fontSize || 12) * 2,
+            };
+            // 尝试解析 font/span 颜色标签
+            const fontRuns = parseHtmlFontTags(htmlText, baseConfig, formatSettings);
+            if (fontRuns.length > 0) {
+              elements.push(new Paragraph({ children: fontRuns }));
+            } else {
+              elements.push(new Paragraph({
+                children: [new TextRun({
+                  text: htmlText.replace(/<[^>]*>/g, ''),
+                  ...baseConfig,
+                })],
+              }));
+            }
           }
           break;
         }
