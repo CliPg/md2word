@@ -1,6 +1,6 @@
 {
   "name": "@clipg/w2w",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Markdown to Word (DOCX) converter with LaTeX math support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
