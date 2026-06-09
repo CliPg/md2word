@@ -29,6 +29,26 @@ w2w input.md output.docx
 
 默认输出与输入文件同名、扩展名为 `.docx` 的文件。
 
+## Skill
+
+### 安装
+
+```bash
+npx skills add CliPg/md2word
+```
+
+安装后在 Claude Code 中直接描述排版需求即可，例如：
+
+```
+把 demo.md 转成 Word，格式要求：
+- 标题：三号黑体
+- 题目：五号黑体，深蓝色
+- 正文：五号宋体，黑色
+- 全文：1.5 倍行间距，段前 0.5 行
+```
+
+Skill 会自动将中文字号、字体、颜色映射为 `FormatSettings` 并执行转换。
+
 ## 效果展示
 md文件：
 ![md](./docs/imgs/md.png)
@@ -134,27 +154,6 @@ $$
 | `sourceFilePath` | `string` | 源文件路径，用于解析相对路径图片 |
 | `imageLoader` | `(path: string) => Promise<Buffer \| null>` | 自定义图片加载函数 |
 
-## Claude Code Skill
-
-本项目附带一个 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) Skill，安装后可以用自然语言描述排版需求，自动生成对应的 `FormatSettings` 并导出 Word。
-
-### 安装
-
-```bash
-npx skills add CliPg/md2word
-```
-
-安装后在 Claude Code 中直接描述排版需求即可，例如：
-
-```
-把 demo.md 转成 Word，格式要求：
-- 标题：三号黑体
-- 题目：五号黑体，深蓝色
-- 正文：五号宋体，黑色
-- 全文：1.5 倍行间距，段前 0.5 行
-```
-
-Skill 会自动将中文字号、字体、颜色映射为 `FormatSettings` 并执行转换。
 
 ## 开发
 
