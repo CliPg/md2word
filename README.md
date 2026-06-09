@@ -29,6 +29,44 @@ w2w input.md output.docx
 
 默认输出与输入文件同名、扩展名为 `.docx` 的文件。
 
+### 自定义排版
+
+```bash
+# 正文样式
+w2w demo.md --body-font "宋体" --body-size 10.5 --body-color "#333333"
+
+# 标题样式（支持 h1-h4）
+w2w demo.md --h1-font "黑体" --h1-size 16 --h1-color "#000000" --h1-bold
+w2w demo.md --h2-font "黑体" --h2-color "#00008B" --h2-align left
+
+# 全局行间距
+w2w demo.md --line-height 1.5
+
+# 组合使用
+w2w demo.md output.docx \
+  --body-font "宋体" --body-size 10.5 --body-color "#000000" \
+  --h1-font "黑体" --h1-size 16 \
+  --h2-font "黑体" --h2-color "#00008B" \
+  --line-height 1.5
+```
+
+可用参数：
+
+| 参数 | 说明 |
+|------|------|
+| `--body-font` | 正文字体 |
+| `--body-size` | 正文字号（磅值） |
+| `--body-color` | 正文颜色（如 `#333333`） |
+| `--h1-font` / `--h2-font` / `--h3-font` / `--h4-font` | 各级标题字体 |
+| `--h1-size` / `--h2-size` / `--h3-size` / `--h4-size` | 各级标题字号 |
+| `--h1-color` / `--h2-color` / `--h3-color` / `--h4-color` | 各级标题颜色 |
+| `--h1-bold` / `--h2-bold` / `--h3-bold` / `--h4-bold` | 标题加粗 |
+| `--h1-center` / `--h2-center` / `--h3-center` / `--h4-center` | 标题居中 |
+| `--h1-align` / `--h2-align` / `--h3-align` / `--h4-align` | 标题对齐（left/center/right/justify） |
+| `--h1-spacing-before` / `--h2-spacing-before` / ... | 段前间距 |
+| `--h1-spacing-after` / `--h2-spacing-after` / ... | 段后间距 |
+| `--line-height` | 全文行间距倍数 |
+
 ## Skill
 
 ### 安装

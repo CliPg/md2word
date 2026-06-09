@@ -22,6 +22,7 @@ export interface HeadingStyle {
   spacingBefore: number;
   spacingAfter: number;
   color?: string;
+  bold?: boolean;
 }
 
 // 排版设置

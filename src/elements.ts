@@ -441,7 +441,7 @@ export async function createHeadingParagraph(token: any, formatSettings?: Format
   const headingStyle = (formatSettings?.[headingKey] as HeadingStyle) || defaultHeadingStyles[headingKey];
 
   const baseConfig: Partial<TextRunConfig> = {
-    bold: true,
+    bold: headingStyle.bold !== false,
     font: { name: headingStyle.fontFamily },
     size: headingStyle.fontSize * 2,
     color: headingStyle.color,
