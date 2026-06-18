@@ -2,6 +2,9 @@
 
 将 Markdown 文档转换为 Word（DOCX）文件，支持 LaTeX 数学公式渲染为 Word 原生公式。
 
+## 项目地址
+https://github.com/CliPg/md2word
+
 ## 功能特性
 
 - **LaTeX 数学公式** — 将 `$...$` 和 `$$...$$` 渲染为 Word 原生公式（OMML），无法转换时降级为 Unicode 文本
